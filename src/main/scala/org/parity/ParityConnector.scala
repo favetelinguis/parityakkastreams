@@ -63,14 +63,10 @@ private[parity] trait ParityConnectorLogic { this: TimerGraphStageLogic =>
 
 
   val  statusListener = new MoldUDP64ClientStatusListener {
-
-    override def downstream(session: MoldUDP64Client): Unit = {println("here0")}
-
-    override def state(session: MoldUDP64Client, next: MoldUDP64ClientState): Unit = {println("here2")}
-
-    override def request(session: MoldUDP64Client, sequenceNumber: Long, requestedMessageCount: Int): Unit = {println("here3")}
-
-    override def endOfSession(session: MoldUDP64Client): Unit = {println("here4")}
+    override def downstream(session: MoldUDP64Client): Unit = Unit
+    override def state(session: MoldUDP64Client, next: MoldUDP64ClientState): Unit = Unit
+    override def request(session: MoldUDP64Client, sequenceNumber: Long, requestedMessageCount: Int): Unit = Unit
+    override def endOfSession(session: MoldUDP64Client): Unit = Unit
   }
 
   final override def preStart(): Unit = {
@@ -82,6 +78,7 @@ private[parity] trait ParityConnectorLogic { this: TimerGraphStageLogic =>
       //Register both channels to the selector
       channelKey = client.getChannel().register(selector, SelectionKey.OP_READ)
       requestChannelKey = client.getRequestChannel().register(selector, SelectionKey.OP_READ)
+      //Get things going
       schedulePoll()
     } catch {
       case ex: Exception => {println(ex.getMessage.toString);failStage(ex)}
@@ -90,7 +87,7 @@ private[parity] trait ParityConnectorLogic { this: TimerGraphStageLogic =>
   }
 
   def schedulePoll(): Unit = {
-    scheduleOnce("poll", 5 milliseconds)
+    scheduleOnce("poll", 2 milliseconds)
   }
 
   def doPoll(): Unit = {
@@ -104,15 +101,14 @@ private[parity] trait ParityConnectorLogic { this: TimerGraphStageLogic =>
           client.receiveResponse()
 
         selector.selectedKeys().clear()
-
-        //TODO
-        //Should close selector AND channels, selector.close does not close the channels
-        //Close when stage fails or terminates
-//        selector.close()
-//        client.close() closes the channels! so use both when shutting down
       }
     } catch {
       case ex: Exception => {println(ex.getMessage.toString);failStage(ex)}
     }
+  }
+
+  override def postStop(): Unit = {
+    selector.close()
+    client.close()
   }
 }
