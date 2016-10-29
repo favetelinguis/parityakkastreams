@@ -28,7 +28,7 @@ object Main extends App {
     requestPort)
 
 
-  PMDSource(settings = s, bufferSize = 10)
+  PMDSource(settings = s, bufferSize = 1000)
     .via(ParityOrderBookReconstructionFlow())
     .runWith(Sink.foreach(println(_)))
 }

@@ -25,7 +25,8 @@ final case class BBO(
 final case class Trade(
                   instrument: String,
                   price:      Double,
-                  size:       Long
+                  size:       Long,
+                  side:       Side
                 ) extends MarketDataEvent
 
 object ParityOrderBookReconstructionFlow {
@@ -74,6 +75,7 @@ final class ParityOrderBookReconstructionFlow extends GraphStage[FlowShape[Incom
           queue.enqueue(Trade(
             instrument = ASCII.unpackLong(instrument).trim,
             price      = price / PriceFactor,
+            side       = side,
             size       = size
           ))
         }
@@ -86,12 +88,20 @@ final class ParityOrderBookReconstructionFlow extends GraphStage[FlowShape[Incom
       setHandlers(in, out, this)
 
       // Output ready to emit, push is ready to be called
-      override def onPull(): Unit = pull(in)
+      override def onPull(): Unit = {
+        if (queue.nonEmpty) {
+          push(out, queue.dequeue())
+        } else if (!hasBeenPulled(in))
+          pull(in)
+      }
 
       override def onPush(): Unit = {
         val inData: IncomingMessage = grab(in)
         updateMarket(inData)
-        push(out, queue.dequeue())
+        if (isAvailable(out) && queue.nonEmpty) {
+          push(out, queue.dequeue())
+        }
+        pull(in)
       }
 
       private def updateMarket(inData: IncomingMessage): Unit = {

@@ -2,6 +2,7 @@ package org.parity
 
 import java.io.IOException
 import java.nio.channels.{SelectionKey, Selector}
+import java.time.LocalTime
 
 import akka.NotUsed
 import akka.stream.{Attributes, Outlet, SourceShape}
@@ -89,14 +90,13 @@ final class PMDSource(settings: ParitySourceSettings, bufferSize: Int) extends G
         })
 
       def handleDelivery(message: IncomingMessage): Unit = {
-        if( isAvailable(out) && queue.isEmpty ) {
-          push(out, message)
-        } else {
-          if (queue.size + 1 > bufferSize) {
-            failStage(new RuntimeException(s"Reached maximum buffer size $bufferSize"))
-          } else {
-            queue.enqueue(message)
+        if (queue.size + 1 <= bufferSize) {
+          queue.enqueue(message)
+          if (isAvailable(out)) {
+            push(out, queue.dequeue())
           }
+        } else {
+          failStage(new RuntimeException(s"Reached maximum buffer size $bufferSize"))
         }
       }
 
